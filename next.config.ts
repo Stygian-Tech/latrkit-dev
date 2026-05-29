@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["latr-packages", "latr-web-client"],
+  transpilePackages: ["latr-packages"],
   async rewrites() {
     return [
       {
