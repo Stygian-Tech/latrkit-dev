@@ -27,6 +27,7 @@ export function DeveloperConsole() {
   const [usage, setUsage] = useState<DeveloperUsageSummary[]>([]);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [keys, setKeys] = useState<DeveloperApiKeySummary[]>([]);
+  const [keysClientId, setKeysClientId] = useState<string | null>(null);
   const [newClientId, setNewClientId] = useState("");
   const [newClientName, setNewClientName] = useState("");
   const [officialClientId, setOfficialClientId] = useState("");
@@ -37,27 +38,37 @@ export function DeveloperConsole() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const visibleKeys =
+    selectedClientId !== null && keysClientId === selectedClientId ? keys : [];
+
   const officialDid = officialProvisionerDid();
   const canProvisionOfficial =
     Boolean(officialDid) && session?.did === officialDid;
 
-  const refresh = useCallback(async () => {
+  const loadConsoleData = useCallback(async () => {
     const oauth = getOAuthSession();
-    if (!oauth) return;
-    setError(null);
+    if (!oauth) return null;
     const [nextClients, nextUsage] = await Promise.all([
       listDeveloperClients(oauth),
       listDeveloperUsage(oauth),
     ]);
-    setClients(nextClients);
-    setUsage(nextUsage);
+    return { nextClients, nextUsage };
   }, [getOAuthSession]);
+
+  const refresh = useCallback(async () => {
+    setError(null);
+    const data = await loadConsoleData();
+    if (!data) return;
+    setClients(data.nextClients);
+    setUsage(data.nextUsage);
+  }, [loadConsoleData]);
 
   const refreshKeys = useCallback(
     async (clientId: string) => {
       const oauth = getOAuthSession();
       if (!oauth) return;
       const nextKeys = await listDeveloperApiKeys(oauth, clientId);
+      setKeysClientId(clientId);
       setKeys(nextKeys);
     },
     [getOAuthSession]
@@ -65,29 +76,46 @@ export function DeveloperConsole() {
 
   useEffect(() => {
     let cancelled = false;
-    refresh()
-      .catch((err: unknown) => {
+    void (async () => {
+      try {
+        const data = await loadConsoleData();
+        if (cancelled || !data) return;
+        setClients(data.nextClients);
+        setUsage(data.nextUsage);
+      } catch (err: unknown) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "Failed to load console data");
         }
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setLoading(false);
-      });
+      }
+    })();
     return () => {
       cancelled = true;
     };
-  }, [refresh]);
+  }, [loadConsoleData]);
 
   useEffect(() => {
-    if (!selectedClientId) {
-      setKeys([]);
-      return;
-    }
-    refreshKeys(selectedClientId).catch((err: unknown) => {
-      setError(err instanceof Error ? err.message : "Failed to load API keys");
-    });
-  }, [selectedClientId, refreshKeys]);
+    if (!selectedClientId) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const oauth = getOAuthSession();
+        if (!oauth) return;
+        const nextKeys = await listDeveloperApiKeys(oauth, selectedClientId);
+        if (cancelled) return;
+        setKeysClientId(selectedClientId);
+        setKeys(nextKeys);
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Failed to load API keys");
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedClientId, getOAuthSession]);
 
   async function handleCreateClient(e: FormEvent) {
     e.preventDefault();
@@ -290,7 +318,7 @@ export function DeveloperConsole() {
             </button>
           </div>
           <ul className="mt-3 space-y-2 text-sm">
-            {keys.map((key) => (
+            {visibleKeys.map((key) => (
               <li
                 key={key.keyId}
                 className="flex items-center justify-between rounded-md bg-zinc-100 px-3 py-2 dark:bg-zinc-900"
