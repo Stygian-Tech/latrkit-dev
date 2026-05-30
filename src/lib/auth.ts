@@ -1,6 +1,7 @@
 import { BrowserOAuthClient, OAuthSession } from "@atproto/oauth-client-browser";
 
 import {
+  assertHostedOAuthClientReady,
   buildDefaultLocalCallbackUrl,
   hasPendingOAuthBrowserCallback,
   readOAuthCallbackParamsFromWindow,
@@ -28,6 +29,8 @@ export async function getOAuthClient(): Promise<BrowserOAuthClient> {
 }
 
 export async function signIn(handle: string): Promise<void> {
+  await assertHostedOAuthClientReady();
+  _clientPromise = null;
   const client = await getOAuthClient();
   await client.signInRedirect(handle, { scope: LATRKIT_DEV_OAUTH_SCOPES });
 }
