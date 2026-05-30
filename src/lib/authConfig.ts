@@ -1,8 +1,6 @@
 import { buildAtprotoLoopbackClientId } from "@atproto/oauth-types";
 
 import { LATRKIT_DEV_OAUTH_SCOPES } from "@/lib/atprotoOAuthScopes";
-import { getAppEnv } from "@/lib/environmentBanner";
-
 export function resolveOAuthResponseMode(): "fragment" | "query" {
   return process.env.NEXT_PUBLIC_OAUTH_RESPONSE_MODE === "query"
     ? "query"
@@ -19,19 +17,13 @@ function isLoopbackHostname(hostname: string): boolean {
 }
 
 export function isLocalOAuthMode(): boolean {
-  if (
-    getAppEnv() === "local" ||
-    process.env.NEXT_PUBLIC_ATPROTO_LOCAL === "true"
-  ) {
+  if (process.env.NEXT_PUBLIC_ATPROTO_LOCAL === "true") {
     return true;
   }
-  if (
+  return (
     typeof window !== "undefined" &&
     isLoopbackHostname(window.location.hostname)
-  ) {
-    return true;
-  }
-  return false;
+  );
 }
 
 export function resolveClientId(): string {
