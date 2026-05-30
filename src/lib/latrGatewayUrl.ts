@@ -1,14 +1,13 @@
 import {
   configureLatrGateway,
   DEFAULT_TESTING_LATR_GATEWAY_URL,
-  type LatrAppEnv,
 } from "@/lib/gatewayConfig";
+import { getAppEnv, toLatrGatewayAppEnv } from "@/lib/environmentBanner";
 
 export function syncLatrGatewayFromBrowser(): void {
-  const appEnv = (process.env.NEXT_PUBLIC_APP_ENV?.trim() ?? "local") as LatrAppEnv;
   configureLatrGateway({
     gatewayUrl: process.env.NEXT_PUBLIC_LATR_GATEWAY_URL,
-    appEnv,
+    appEnv: toLatrGatewayAppEnv(getAppEnv()),
     testingHostname:
       typeof window !== "undefined" ? window.location.hostname : undefined,
   });

@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+html {
+  --env-banner-offset: 0px;
+}
+
 body {
   font-family:
     system-ui,
