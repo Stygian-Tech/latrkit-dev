@@ -5,7 +5,7 @@ Next.js app for **latrkit.dev** — ATProto OAuth login, developer client/API ke
 ## Stack
 
 - Next.js 16 App Router, React 19, Tailwind CSS v4
-- `@atproto/oauth-client-browser` (loopback on `127.0.0.1`, hosted metadata on latrkit.dev)
+- `@atproto/oauth-client-browser` (loopback on `127.0.0.1`; hosted metadata on latrkit.dev; gateway metadata on deployment-protected staging e.g. `testing.latrkit.dev`)
 - `latr-packages` git dependency for shared gateway types/constants
 
 ## Conventions

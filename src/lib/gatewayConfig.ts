@@ -47,8 +47,7 @@ function isLoopbackGatewayUrl(url: string): boolean {
 function gatewayForKnownHostname(hostname: string | undefined): string | undefined {
   switch (hostname?.toLowerCase()) {
     case "testing.latr.link":
-    case "testing.stygiantech.dev":
-    case "latrkit.testing.stygiantech.dev":
+    case "testing.latrkit.dev":
       return DEFAULT_TESTING_LATR_GATEWAY_URL;
     case "latr.link":
     case "www.latr.link":

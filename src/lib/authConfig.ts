@@ -1,6 +1,8 @@
 import { buildAtprotoLoopbackClientId } from "@atproto/oauth-types";
 
 import { LATRKIT_DEV_OAUTH_SCOPES } from "@/lib/atprotoOAuthScopes";
+import { resolveHostedOAuthClientId } from "@/lib/oauthClientMetadata";
+
 export function resolveOAuthResponseMode(): "fragment" | "query" {
   return process.env.NEXT_PUBLIC_OAUTH_RESPONSE_MODE === "query"
     ? "query"
@@ -26,14 +28,6 @@ export function isLocalOAuthMode(): boolean {
   );
 }
 
-function clientIdOrigin(clientId: string): string | null {
-  try {
-    return new URL(clientId).origin;
-  } catch {
-    return null;
-  }
-}
-
 export function resolveHostedRedirectUri(): string {
   if (typeof window === "undefined") {
     throw new Error("resolveHostedRedirectUri requires the browser");
@@ -46,18 +40,10 @@ export function resolveClientId(): string {
   if (manual) return manual;
 
   if (!isLocalOAuthMode()) {
-    const fromOrigin =
-      typeof window !== "undefined"
-        ? `${window.location.origin}/client-metadata.json`
-        : null;
-    const explicit = process.env.NEXT_PUBLIC_ATPROTO_CLIENT_ID?.trim();
-    if (fromOrigin) {
-      if (explicit) {
-        const explicitOrigin = clientIdOrigin(explicit);
-        if (explicitOrigin === window.location.origin) return explicit;
-      }
-      return fromOrigin;
+    if (typeof window !== "undefined") {
+      return resolveHostedOAuthClientId(window.location.origin);
     }
+    const explicit = process.env.NEXT_PUBLIC_ATPROTO_CLIENT_ID?.trim();
     if (explicit) return explicit;
     return "https://latrkit.dev/client-metadata.json";
   }
@@ -119,7 +105,7 @@ export async function assertHostedOAuthClientReady(): Promise<void> {
 
   if (!res.ok) {
     throw new Error(
-      `OAuth client metadata at ${clientId} returned HTTP ${res.status}. Bluesky must fetch this URL publicly — Vercel preview deploys need Deployment Protection disabled, or test on latrkit.dev / latrkit-dev.vercel.app.`
+      `OAuth client metadata at ${clientId} returned HTTP ${res.status}. For deployment-protected hosts like testing.latrkit.dev, metadata is served from the public gateway — ensure OAUTH_LATRKIT_PUBLIC_ORIGIN is set on latr-gateway.`
     );
   }
 
@@ -134,7 +120,7 @@ export async function assertHostedOAuthClientReady(): Promise<void> {
   if (!metadata.redirect_uris?.includes(redirectUri)) {
     const allowed = metadata.redirect_uris?.join(", ") ?? "(none)";
     throw new Error(
-      `OAuth redirect mismatch: this page uses ${redirectUri}, but client metadata only allows ${allowed}. Unset NEXT_PUBLIC_ATPROTO_CLIENT_ID unless it matches the URL in your browser.`
+      `OAuth redirect mismatch: this page uses ${redirectUri}, but client metadata only allows ${allowed}.`
     );
   }
 }
