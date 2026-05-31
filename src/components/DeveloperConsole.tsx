@@ -18,6 +18,7 @@ import {
   revokeDeveloperApiKey,
 } from "@/lib/developerGatewayClient";
 
+import { LatrKitLogo } from "@/components/LatrKitLogo";
 import { useAuth } from "@/hooks/useAuth";
 import { officialProvisionerDid } from "@/lib/environmentBanner";
 
@@ -175,11 +176,14 @@ export function DeveloperConsole() {
   return (
     <div className="mx-auto max-w-4xl space-y-8 p-6">
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-zinc-200 pb-4 dark:border-zinc-800">
-        <div>
-          <h1 className="text-2xl font-semibold">LatrKit Developer Console</h1>
-          <p className="mt-1 text-sm text-zinc-500">
-            Signed in as <code className="text-xs">{session?.did}</code>
-          </p>
+        <div className="flex items-center gap-3">
+          <LatrKitLogo size={40} />
+          <div>
+            <h1 className="text-2xl font-semibold">LatrKit Developer Console</h1>
+            <p className="mt-1 text-sm text-zinc-500">
+              Signed in as <code className="text-xs">{session?.did}</code>
+            </p>
+          </div>
         </div>
         <button
           type="button"
