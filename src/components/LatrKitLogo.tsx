@@ -12,7 +12,9 @@ export function LatrKitLogo({ size = 40, className }: LatrKitLogoProps) {
       alt="LatrKit"
       width={size}
       height={size}
-      className={className}
+      className={["rounded-[22%] shadow-sm ring-1 ring-zinc-900/10 dark:ring-white/10", className]
+        .filter(Boolean)
+        .join(" ")}
       priority
     />
   );
