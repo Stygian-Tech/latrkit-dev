@@ -12,7 +12,7 @@ Next.js app for **latrkit.dev** — ATProto OAuth login, developer client/API ke
 
 - Management API calls use OAuth + DPoP only (no app API key in the browser).
 - Gateway URL: `NEXT_PUBLIC_LATR_GATEWAY_URL` + hostname heuristics in `src/lib/gatewayConfig.ts`.
-- Official client provisioning UI appears only when `NEXT_PUBLIC_OFFICIAL_CLIENT_DID` matches the signed-in DID (gateway enforces the same via `OFFICIAL_CLIENT_DID`).
+- First-party apps register through the same client + API key flow as any other developer.
 
 ## Commands
 

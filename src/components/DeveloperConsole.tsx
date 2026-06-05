@@ -10,7 +10,6 @@ import type {
 import {
   createDeveloperApiKey,
   createDeveloperClient,
-  createOfficialDeveloperClient,
   deleteDeveloperClient,
   listDeveloperApiKeys,
   listDeveloperClients,
@@ -20,7 +19,7 @@ import {
 
 import { LatrKitLogo } from "@/components/LatrKitLogo";
 import { useAuth } from "@/hooks/useAuth";
-import { officialProvisionerDid } from "@/lib/environmentBanner";
+import { normalizeGatewayClientId } from "@/lib/gatewayClientId";
 
 export function DeveloperConsole() {
   const { session, getOAuthSession, signOut } = useAuth();
@@ -31,8 +30,6 @@ export function DeveloperConsole() {
   const [keysClientId, setKeysClientId] = useState<string | null>(null);
   const [newClientId, setNewClientId] = useState("");
   const [newClientName, setNewClientName] = useState("");
-  const [officialClientId, setOfficialClientId] = useState("");
-  const [officialClientName, setOfficialClientName] = useState("");
   const [revealedKey, setRevealedKey] = useState<CreateDeveloperApiKeyResponse | null>(
     null
   );
@@ -41,10 +38,6 @@ export function DeveloperConsole() {
 
   const visibleKeys =
     selectedClientId !== null && keysClientId === selectedClientId ? keys : [];
-
-  const officialDid = officialProvisionerDid();
-  const canProvisionOfficial =
-    Boolean(officialDid) && session?.did === officialDid;
 
   const loadConsoleData = useCallback(async () => {
     const oauth = getOAuthSession();
@@ -124,8 +117,9 @@ export function DeveloperConsole() {
     if (!oauth) return;
     setError(null);
     try {
+      const clientId = normalizeGatewayClientId(newClientId);
       await createDeveloperClient(oauth, {
-        clientId: newClientId.trim(),
+        clientId,
         displayName: newClientName.trim() || undefined,
       });
       setNewClientId("");
@@ -133,25 +127,6 @@ export function DeveloperConsole() {
       await refresh();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to create client");
-    }
-  }
-
-  async function handleCreateOfficial(e: FormEvent) {
-    e.preventDefault();
-    const oauth = getOAuthSession();
-    if (!oauth) return;
-    setError(null);
-    try {
-      const created = await createOfficialDeveloperClient(oauth, {
-        clientId: officialClientId.trim(),
-        displayName: officialClientName.trim() || undefined,
-      });
-      setRevealedKey(created);
-      setOfficialClientId("");
-      setOfficialClientName("");
-      await refresh();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to provision official client");
     }
   }
 
@@ -231,22 +206,26 @@ export function DeveloperConsole() {
                   className="text-left"
                   onClick={() => setSelectedClientId(client.clientId)}
                 >
-                  <span className="font-medium">{client.clientId}</span>
-                  <span className="ml-2 text-xs text-zinc-500">{client.kind}</span>
+                  <span className="font-medium">
+                    {client.displayName ?? client.clientId}
+                  </span>
+                  {client.displayName ? (
+                    <span className="ml-2 font-mono text-xs text-zinc-500">
+                      {client.clientId}
+                    </span>
+                  ) : null}
                 </button>
-                {client.kind === "developer" ? (
-                  <button
-                    type="button"
-                    className="text-xs text-red-600"
-                    onClick={() =>
-                      void deleteDeveloperClient(getOAuthSession()!, client.clientId).then(
-                        refresh
-                      )
-                    }
-                  >
-                    Delete
-                  </button>
-                ) : null}
+                <button
+                  type="button"
+                  className="text-xs text-red-600"
+                  onClick={() =>
+                    void deleteDeveloperClient(getOAuthSession()!, client.clientId).then(
+                      refresh
+                    )
+                  }
+                >
+                  Delete
+                </button>
               </li>
             ))
           )}
@@ -254,20 +233,25 @@ export function DeveloperConsole() {
       </section>
 
       <section className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-        <h2 className="text-lg font-medium">Create developer client</h2>
+        <h2 className="text-lg font-medium">Create client</h2>
+        <p className="mt-1 text-sm text-zinc-500">
+          First-party apps use the same flow as any other developer. Issue keys after creating a
+          client.
+        </p>
         <form onSubmit={handleCreateClient} className="mt-3 grid gap-3 sm:grid-cols-2">
           <input
             value={newClientId}
-            onChange={(e) => setNewClientId(e.target.value)}
+            onChange={(e) => setNewClientId(e.target.value.toLowerCase())}
             placeholder="client-id"
             required
-            pattern="[a-z][a-z0-9-]{0,62}"
-            className="h-10 rounded-md border border-zinc-300 px-3 text-sm dark:border-zinc-600 dark:bg-zinc-950"
+            autoComplete="off"
+            spellCheck={false}
+            className="h-10 rounded-md border border-zinc-300 px-3 font-mono text-sm dark:border-zinc-600 dark:bg-zinc-950"
           />
           <input
             value={newClientName}
             onChange={(e) => setNewClientName(e.target.value)}
-            placeholder="Display name (optional)"
+            placeholder="Display name (optional, any characters)"
             className="h-10 rounded-md border border-zinc-300 px-3 text-sm dark:border-zinc-600 dark:bg-zinc-950"
           />
           <button
@@ -278,36 +262,6 @@ export function DeveloperConsole() {
           </button>
         </form>
       </section>
-
-      {canProvisionOfficial ? (
-        <section className="rounded-lg border border-violet-300 p-4 dark:border-violet-800">
-          <h2 className="text-lg font-medium">Official clients (provisioner)</h2>
-          <p className="mt-1 text-sm text-zinc-500">
-            Internal first-party integrations (L@tr.link, The Social Wire, …).
-          </p>
-          <form onSubmit={handleCreateOfficial} className="mt-3 grid gap-3 sm:grid-cols-2">
-            <input
-              value={officialClientId}
-              onChange={(e) => setOfficialClientId(e.target.value)}
-              placeholder="latr-link-web"
-              required
-              className="h-10 rounded-md border border-zinc-300 px-3 text-sm dark:border-zinc-600 dark:bg-zinc-950"
-            />
-            <input
-              value={officialClientName}
-              onChange={(e) => setOfficialClientName(e.target.value)}
-              placeholder="Display name"
-              className="h-10 rounded-md border border-zinc-300 px-3 text-sm dark:border-zinc-600 dark:bg-zinc-950"
-            />
-            <button
-              type="submit"
-              className="h-10 rounded-md bg-violet-700 text-sm font-medium text-white sm:col-span-2"
-            >
-              Provision official client + key
-            </button>
-          </form>
-        </section>
-      ) : null}
 
       {selectedClientId ? (
         <section className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">

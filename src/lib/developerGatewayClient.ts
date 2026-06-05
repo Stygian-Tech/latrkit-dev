@@ -88,21 +88,6 @@ export async function revokeDeveloperApiKey(
   );
 }
 
-export async function createOfficialDeveloperClient(
-  oauthSession: OAuthSession,
-  request: CreateDeveloperClientRequest
-): Promise<CreateDeveloperApiKeyResponse> {
-  return latrGatewayJson<CreateDeveloperApiKeyResponse>(
-    oauthSession,
-    "/v1/latr/developer/official/clients",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(request),
-    }
-  );
-}
-
 export async function listDeveloperUsage(
   oauthSession: OAuthSession
 ): Promise<DeveloperUsageSummary[]> {

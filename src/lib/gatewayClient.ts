@@ -19,10 +19,25 @@ export async function latrGatewayFetch(
   });
 }
 
+const DEVELOPER_ROUTE_CLIENT_POLICY_HINT =
+  "The testing gateway is rejecting developer console requests because it still requires app API keys on /v1/latr/developer/* — deploy the latest latr-gateway fix (developer routes must use OAuth + DPoP only).";
+
 async function readGatewayError(res: Response): Promise<string> {
   try {
-    const body = (await res.json()) as { message?: string; error?: string };
-    return body.message ?? body.error ?? `Gateway error (${res.status})`;
+    const body = (await res.json()) as {
+      message?: string;
+      error?: string;
+      code?: string;
+    };
+    const message = body.message ?? body.error ?? `Gateway error (${res.status})`;
+    if (
+      res.status === 403 &&
+      (body.code === "client_forbidden" ||
+        body.code === "invalid_client_credential")
+    ) {
+      return `${message} ${DEVELOPER_ROUTE_CLIENT_POLICY_HINT}`;
+    }
+    return message;
   } catch {
     return `Gateway error (${res.status})`;
   }

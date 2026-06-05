@@ -87,8 +87,3 @@ export function isEnvironmentBannerShown(appEnv: AppEnv = getAppEnv()): boolean 
 export function environmentBannerOffset(appEnv: AppEnv = getAppEnv()): string {
   return isEnvironmentBannerShown(appEnv) ? ENVIRONMENT_BANNER_OFFSET : "0px";
 }
-
-export function officialProvisionerDid(): string | undefined {
-  const raw = process.env.NEXT_PUBLIC_OFFICIAL_CLIENT_DID?.trim();
-  return raw && raw.length > 0 ? raw : undefined;
-}
