@@ -10,7 +10,6 @@ import type {
 import {
   createDeveloperApiKey,
   createDeveloperClient,
-  createOfficialDeveloperClient,
   deleteDeveloperClient,
   listDeveloperApiKeys,
   listDeveloperClients,
@@ -18,8 +17,9 @@ import {
   revokeDeveloperApiKey,
 } from "@/lib/developerGatewayClient";
 
+import { LatrKitLogo } from "@/components/LatrKitLogo";
 import { useAuth } from "@/hooks/useAuth";
-import { officialProvisionerDid } from "@/lib/environmentBanner";
+import { normalizeGatewayClientId } from "@/lib/gatewayClientId";
 
 export function DeveloperConsole() {
   const { session, getOAuthSession, signOut } = useAuth();
@@ -30,8 +30,6 @@ export function DeveloperConsole() {
   const [keysClientId, setKeysClientId] = useState<string | null>(null);
   const [newClientId, setNewClientId] = useState("");
   const [newClientName, setNewClientName] = useState("");
-  const [officialClientId, setOfficialClientId] = useState("");
-  const [officialClientName, setOfficialClientName] = useState("");
   const [revealedKey, setRevealedKey] = useState<CreateDeveloperApiKeyResponse | null>(
     null
   );
@@ -40,10 +38,6 @@ export function DeveloperConsole() {
 
   const visibleKeys =
     selectedClientId !== null && keysClientId === selectedClientId ? keys : [];
-
-  const officialDid = officialProvisionerDid();
-  const canProvisionOfficial =
-    Boolean(officialDid) && session?.did === officialDid;
 
   const loadConsoleData = useCallback(async () => {
     const oauth = getOAuthSession();
@@ -123,8 +117,9 @@ export function DeveloperConsole() {
     if (!oauth) return;
     setError(null);
     try {
+      const clientId = normalizeGatewayClientId(newClientId);
       await createDeveloperClient(oauth, {
-        clientId: newClientId.trim(),
+        clientId,
         displayName: newClientName.trim() || undefined,
       });
       setNewClientId("");
@@ -132,25 +127,6 @@ export function DeveloperConsole() {
       await refresh();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to create client");
-    }
-  }
-
-  async function handleCreateOfficial(e: FormEvent) {
-    e.preventDefault();
-    const oauth = getOAuthSession();
-    if (!oauth) return;
-    setError(null);
-    try {
-      const created = await createOfficialDeveloperClient(oauth, {
-        clientId: officialClientId.trim(),
-        displayName: officialClientName.trim() || undefined,
-      });
-      setRevealedKey(created);
-      setOfficialClientId("");
-      setOfficialClientName("");
-      await refresh();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to provision official client");
     }
   }
 
@@ -168,18 +144,52 @@ export function DeveloperConsole() {
     }
   }
 
+  async function handleDeleteClient(clientId: string) {
+    const oauth = getOAuthSession();
+    if (!oauth) return;
+    setError(null);
+    try {
+      await deleteDeveloperClient(oauth, clientId);
+      if (selectedClientId === clientId) {
+        setSelectedClientId(null);
+        setKeysClientId(null);
+        setKeys([]);
+      }
+      await refresh();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to delete client");
+    }
+  }
+
+  async function handleRevokeKey(keyId: string) {
+    if (!selectedClientId) return;
+    const oauth = getOAuthSession();
+    if (!oauth) return;
+    setError(null);
+    try {
+      await revokeDeveloperApiKey(oauth, selectedClientId, keyId);
+      await refreshKeys(selectedClientId);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to revoke API key");
+    }
+  }
+
   if (loading) {
     return <p className="text-sm text-zinc-500">Loading developer console…</p>;
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-8 p-6">
+    <div className="mx-auto max-w-3xl space-y-8 px-4 py-6 sm:px-6">
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-zinc-200 pb-4 dark:border-zinc-800">
-        <div>
-          <h1 className="text-2xl font-semibold">LatrKit Developer Console</h1>
-          <p className="mt-1 text-sm text-zinc-500">
-            Signed in as <code className="text-xs">{session?.did}</code>
-          </p>
+        <div className="flex min-w-0 items-center gap-3">
+          <LatrKitLogo size={40} />
+          <div className="min-w-0">
+            <h1 className="text-2xl font-semibold">LatrKit Developer Console</h1>
+            <p className="mt-1 text-sm text-zinc-500">
+              Signed in as{" "}
+              <code className="break-all font-mono text-xs">{session?.did}</code>
+            </p>
+          </div>
         </div>
         <button
           type="button"
@@ -200,9 +210,12 @@ export function DeveloperConsole() {
         <section className="rounded-lg border border-amber-300 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950">
           <h2 className="font-medium text-amber-900 dark:text-amber-100">API key (shown once)</h2>
           <p className="mt-2 font-mono text-sm break-all">{revealedKey.apiKey}</p>
-          <p className="mt-2 text-xs text-amber-800 dark:text-amber-200">
-            Use headers <code>X-Latr-Client-Id: {revealedKey.clientId}</code> and{" "}
-            <code>X-Latr-API-Key</code> on gateway requests.
+          <p className="mt-2 text-xs leading-5 text-amber-800 dark:text-amber-200">
+            Use headers{" "}
+            <code className="font-mono break-all">
+              X-Latr-Client-Id: {revealedKey.clientId}
+            </code>{" "}
+            and <code className="font-mono">X-Latr-API-Key</code> on gateway requests.
           </p>
           <button
             type="button"
@@ -221,28 +234,33 @@ export function DeveloperConsole() {
             <li className="px-4 py-3 text-sm text-zinc-500">No clients yet.</li>
           ) : (
             clients.map((client) => (
-              <li key={client.clientId} className="flex items-center justify-between px-4 py-3">
+              <li
+                key={client.clientId}
+                className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+              >
                 <button
                   type="button"
-                  className="text-left"
+                  className="min-w-0 text-left"
                   onClick={() => setSelectedClientId(client.clientId)}
                 >
-                  <span className="font-medium">{client.clientId}</span>
-                  <span className="ml-2 text-xs text-zinc-500">{client.kind}</span>
+                  <span className="block truncate font-medium">
+                    {client.displayName ?? client.clientId}
+                  </span>
+                  {client.displayName ? (
+                    <span className="mt-1 block font-mono text-xs break-all text-zinc-500">
+                      {client.clientId}
+                    </span>
+                  ) : null}
                 </button>
-                {client.kind === "developer" ? (
-                  <button
-                    type="button"
-                    className="text-xs text-red-600"
-                    onClick={() =>
-                      void deleteDeveloperClient(getOAuthSession()!, client.clientId).then(
-                        refresh
-                      )
-                    }
-                  >
-                    Delete
-                  </button>
-                ) : null}
+                <button
+                  type="button"
+                  className="text-xs text-red-600"
+                  onClick={() =>
+                    void handleDeleteClient(client.clientId)
+                  }
+                >
+                  Delete
+                </button>
               </li>
             ))
           )}
@@ -250,20 +268,25 @@ export function DeveloperConsole() {
       </section>
 
       <section className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-        <h2 className="text-lg font-medium">Create developer client</h2>
+        <h2 className="text-lg font-medium">Create client</h2>
+        <p className="mt-1 text-sm text-zinc-500">
+          First-party apps use the same flow as any other developer. Issue keys after creating a
+          client.
+        </p>
         <form onSubmit={handleCreateClient} className="mt-3 grid gap-3 sm:grid-cols-2">
           <input
             value={newClientId}
-            onChange={(e) => setNewClientId(e.target.value)}
+            onChange={(e) => setNewClientId(e.target.value.toLowerCase())}
             placeholder="client-id"
             required
-            pattern="[a-z][a-z0-9-]{0,62}"
-            className="h-10 rounded-md border border-zinc-300 px-3 text-sm dark:border-zinc-600 dark:bg-zinc-950"
+            autoComplete="off"
+            spellCheck={false}
+            className="h-10 rounded-md border border-zinc-300 px-3 font-mono text-sm dark:border-zinc-600 dark:bg-zinc-950"
           />
           <input
             value={newClientName}
             onChange={(e) => setNewClientName(e.target.value)}
-            placeholder="Display name (optional)"
+            placeholder="Display name (optional, any characters)"
             className="h-10 rounded-md border border-zinc-300 px-3 text-sm dark:border-zinc-600 dark:bg-zinc-950"
           />
           <button
@@ -275,40 +298,13 @@ export function DeveloperConsole() {
         </form>
       </section>
 
-      {canProvisionOfficial ? (
-        <section className="rounded-lg border border-violet-300 p-4 dark:border-violet-800">
-          <h2 className="text-lg font-medium">Official clients (provisioner)</h2>
-          <p className="mt-1 text-sm text-zinc-500">
-            Internal first-party integrations (L@tr.link, The Social Wire, …).
-          </p>
-          <form onSubmit={handleCreateOfficial} className="mt-3 grid gap-3 sm:grid-cols-2">
-            <input
-              value={officialClientId}
-              onChange={(e) => setOfficialClientId(e.target.value)}
-              placeholder="latr-link-web"
-              required
-              className="h-10 rounded-md border border-zinc-300 px-3 text-sm dark:border-zinc-600 dark:bg-zinc-950"
-            />
-            <input
-              value={officialClientName}
-              onChange={(e) => setOfficialClientName(e.target.value)}
-              placeholder="Display name"
-              className="h-10 rounded-md border border-zinc-300 px-3 text-sm dark:border-zinc-600 dark:bg-zinc-950"
-            />
-            <button
-              type="submit"
-              className="h-10 rounded-md bg-violet-700 text-sm font-medium text-white sm:col-span-2"
-            >
-              Provision official client + key
-            </button>
-          </form>
-        </section>
-      ) : null}
-
       {selectedClientId ? (
         <section className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-medium">API keys for {selectedClientId}</h2>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="min-w-0 text-lg font-medium">
+              API keys for{" "}
+              <span className="font-mono break-all text-base">{selectedClientId}</span>
+            </h2>
             <button
               type="button"
               onClick={() => void handleCreateKey()}
@@ -321,10 +317,10 @@ export function DeveloperConsole() {
             {visibleKeys.map((key) => (
               <li
                 key={key.keyId}
-                className="flex items-center justify-between rounded-md bg-zinc-100 px-3 py-2 dark:bg-zinc-900"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-zinc-100 px-3 py-2 dark:bg-zinc-900"
               >
-                <span>
-                  {key.label ?? key.keyId}{" "}
+                <span className="min-w-0">
+                  <span className="font-mono break-all">{key.label ?? key.keyId}</span>{" "}
                   {key.revokedAt ? (
                     <span className="text-red-600">revoked</span>
                   ) : (
@@ -336,11 +332,7 @@ export function DeveloperConsole() {
                     type="button"
                     className="text-xs text-red-600"
                     onClick={() =>
-                      void revokeDeveloperApiKey(
-                        getOAuthSession()!,
-                        selectedClientId,
-                        key.keyId
-                      ).then(() => refreshKeys(selectedClientId))
+                      void handleRevokeKey(key.keyId)
                     }
                   >
                     Revoke
@@ -360,7 +352,8 @@ export function DeveloperConsole() {
         <ul className="mt-3 space-y-2 text-sm">
           {usage.map((row) => (
             <li key={row.clientId} className="rounded-md bg-zinc-100 px-3 py-2 dark:bg-zinc-900">
-              <strong>{row.clientId}</strong> — {row.usageDate}
+              <strong className="font-mono break-all">{row.clientId}</strong>{" "}
+              <span className="text-zinc-500">-</span> {row.usageDate}
               {row.dailyLimit != null ? (
                 <span className="ml-2 text-zinc-500">
                   {row.remaining ?? 0} / {row.dailyLimit} remaining

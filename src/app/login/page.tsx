@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 
+import { LatrKitLogo } from "@/components/LatrKitLogo";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function LoginPage() {
@@ -26,7 +27,10 @@ export default function LoginPage() {
     <div className="flex min-h-dvh flex-col items-center justify-center p-4">
       <div className="w-full max-w-sm space-y-6 rounded-xl border border-zinc-200 bg-white p-8 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
         <div className="text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">LatrKit</h1>
+          <div className="flex items-center justify-center gap-3">
+            <LatrKitLogo size={44} />
+            <h1 className="text-2xl font-semibold tracking-tight">LatrKit</h1>
+          </div>
           <p className="mt-2 text-sm text-zinc-500">Developer console</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">

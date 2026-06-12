@@ -34,7 +34,6 @@ See [`.env.example`](.env.example).
 | Variable | Description |
 |----------|-------------|
 | `NEXT_PUBLIC_LATR_GATEWAY_URL` | LatrKit gateway base URL |
-| `NEXT_PUBLIC_OFFICIAL_CLIENT_DID` | When it matches your signed-in DID, shows official-client provisioning |
 | `NEXT_PUBLIC_ATPROTO_CLIENT_ID` | Hosted OAuth metadata URL (production: `https://latrkit.dev/client-metadata.json`) |
 
 Gateway must allow your OAuth client metadata URL in `OAUTH_GATEWAY_ALLOWED_CLIENT_IDS` when `OAUTH_GATEWAY_REQUIRE_KNOWN_CLIENT=true`.
