@@ -144,19 +144,50 @@ export function DeveloperConsole() {
     }
   }
 
+  async function handleDeleteClient(clientId: string) {
+    const oauth = getOAuthSession();
+    if (!oauth) return;
+    setError(null);
+    try {
+      await deleteDeveloperClient(oauth, clientId);
+      if (selectedClientId === clientId) {
+        setSelectedClientId(null);
+        setKeysClientId(null);
+        setKeys([]);
+      }
+      await refresh();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to delete client");
+    }
+  }
+
+  async function handleRevokeKey(keyId: string) {
+    if (!selectedClientId) return;
+    const oauth = getOAuthSession();
+    if (!oauth) return;
+    setError(null);
+    try {
+      await revokeDeveloperApiKey(oauth, selectedClientId, keyId);
+      await refreshKeys(selectedClientId);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to revoke API key");
+    }
+  }
+
   if (loading) {
     return <p className="text-sm text-zinc-500">Loading developer console…</p>;
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-8 p-6">
+    <div className="mx-auto max-w-3xl space-y-8 px-4 py-6 sm:px-6">
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-zinc-200 pb-4 dark:border-zinc-800">
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 items-center gap-3">
           <LatrKitLogo size={40} />
-          <div>
+          <div className="min-w-0">
             <h1 className="text-2xl font-semibold">LatrKit Developer Console</h1>
             <p className="mt-1 text-sm text-zinc-500">
-              Signed in as <code className="text-xs">{session?.did}</code>
+              Signed in as{" "}
+              <code className="break-all font-mono text-xs">{session?.did}</code>
             </p>
           </div>
         </div>
@@ -179,9 +210,12 @@ export function DeveloperConsole() {
         <section className="rounded-lg border border-amber-300 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950">
           <h2 className="font-medium text-amber-900 dark:text-amber-100">API key (shown once)</h2>
           <p className="mt-2 font-mono text-sm break-all">{revealedKey.apiKey}</p>
-          <p className="mt-2 text-xs text-amber-800 dark:text-amber-200">
-            Use headers <code>X-Latr-Client-Id: {revealedKey.clientId}</code> and{" "}
-            <code>X-Latr-API-Key</code> on gateway requests.
+          <p className="mt-2 text-xs leading-5 text-amber-800 dark:text-amber-200">
+            Use headers{" "}
+            <code className="font-mono break-all">
+              X-Latr-Client-Id: {revealedKey.clientId}
+            </code>{" "}
+            and <code className="font-mono">X-Latr-API-Key</code> on gateway requests.
           </p>
           <button
             type="button"
@@ -200,17 +234,20 @@ export function DeveloperConsole() {
             <li className="px-4 py-3 text-sm text-zinc-500">No clients yet.</li>
           ) : (
             clients.map((client) => (
-              <li key={client.clientId} className="flex items-center justify-between px-4 py-3">
+              <li
+                key={client.clientId}
+                className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+              >
                 <button
                   type="button"
-                  className="text-left"
+                  className="min-w-0 text-left"
                   onClick={() => setSelectedClientId(client.clientId)}
                 >
-                  <span className="font-medium">
+                  <span className="block truncate font-medium">
                     {client.displayName ?? client.clientId}
                   </span>
                   {client.displayName ? (
-                    <span className="ml-2 font-mono text-xs text-zinc-500">
+                    <span className="mt-1 block font-mono text-xs break-all text-zinc-500">
                       {client.clientId}
                     </span>
                   ) : null}
@@ -219,9 +256,7 @@ export function DeveloperConsole() {
                   type="button"
                   className="text-xs text-red-600"
                   onClick={() =>
-                    void deleteDeveloperClient(getOAuthSession()!, client.clientId).then(
-                      refresh
-                    )
+                    void handleDeleteClient(client.clientId)
                   }
                 >
                   Delete
@@ -265,8 +300,11 @@ export function DeveloperConsole() {
 
       {selectedClientId ? (
         <section className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-medium">API keys for {selectedClientId}</h2>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="min-w-0 text-lg font-medium">
+              API keys for{" "}
+              <span className="font-mono break-all text-base">{selectedClientId}</span>
+            </h2>
             <button
               type="button"
               onClick={() => void handleCreateKey()}
@@ -279,10 +317,10 @@ export function DeveloperConsole() {
             {visibleKeys.map((key) => (
               <li
                 key={key.keyId}
-                className="flex items-center justify-between rounded-md bg-zinc-100 px-3 py-2 dark:bg-zinc-900"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-zinc-100 px-3 py-2 dark:bg-zinc-900"
               >
-                <span>
-                  {key.label ?? key.keyId}{" "}
+                <span className="min-w-0">
+                  <span className="font-mono break-all">{key.label ?? key.keyId}</span>{" "}
                   {key.revokedAt ? (
                     <span className="text-red-600">revoked</span>
                   ) : (
@@ -294,11 +332,7 @@ export function DeveloperConsole() {
                     type="button"
                     className="text-xs text-red-600"
                     onClick={() =>
-                      void revokeDeveloperApiKey(
-                        getOAuthSession()!,
-                        selectedClientId,
-                        key.keyId
-                      ).then(() => refreshKeys(selectedClientId))
+                      void handleRevokeKey(key.keyId)
                     }
                   >
                     Revoke
@@ -318,7 +352,8 @@ export function DeveloperConsole() {
         <ul className="mt-3 space-y-2 text-sm">
           {usage.map((row) => (
             <li key={row.clientId} className="rounded-md bg-zinc-100 px-3 py-2 dark:bg-zinc-900">
-              <strong>{row.clientId}</strong> — {row.usageDate}
+              <strong className="font-mono break-all">{row.clientId}</strong>{" "}
+              <span className="text-zinc-500">-</span> {row.usageDate}
               {row.dailyLimit != null ? (
                 <span className="ml-2 text-zinc-500">
                   {row.remaining ?? 0} / {row.dailyLimit} remaining
