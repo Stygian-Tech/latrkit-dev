@@ -1,4 +1,8 @@
 import type { OAuthSession } from "@atproto/oauth-client-browser";
+import {
+  createUpstreamDpopProof,
+  LATR_UPSTREAM_DPOP_HEADER,
+} from "latr-packages/gateway-client";
 
 import { latrGatewayBaseUrl } from "@/lib/gatewayConfig";
 
@@ -10,12 +14,18 @@ export async function latrGatewayFetch(
 ): Promise<Response> {
   const gatewayPath = path.startsWith("/") ? path : `/${path}`;
   const url = `${latrGatewayBaseUrl()}${gatewayPath}`;
+  const sessionProof = await createUpstreamDpopProof(
+    oauthSession,
+    "com.atproto.server.getSession",
+    "GET"
+  );
+  const headers = new Headers(init?.headers);
+  if (!headers.has("Accept")) headers.set("Accept", "application/json");
+  headers.set(LATR_UPSTREAM_DPOP_HEADER, sessionProof);
+
   return oauthSession.fetchHandler(url, {
     ...init,
-    headers: {
-      Accept: "application/json",
-      ...(init?.headers ?? {}),
-    },
+    headers,
   });
 }
 
